@@ -1,0 +1,63 @@
+# ==================== Python ====================
+__pycache__/
+*.py[cod]
+*.pyc
+venv/
+.venv/
+env/
+ENV/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ==================== Data ====================
+data/anpr.db
+data/anpr.db-journal
+data/backups/
+data/snapshots/
+data/real_plates/
+data/ocr/images/
+data/ocr/train_labels.txt
+data/ocr/val_labels.txt
+data/pose/train/
+data/pose/valid/
+data/pose/test/
+
+# ==================== Samples (اختیاری) ====================
+samples/
+
+# ==================== Logs ====================
+logs/
+*.log
+anpr.log
+
+# ==================== TensorBoard ====================
+runs/
+outputs/runs/
+outputs/logs/
+outputs/pose_runs/
+
+# ==================== IDE ====================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==================== OS ====================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==================== Env ====================
+.env
+.env.local
+
+# ==================== Temp ====================
+_temp_*.jpg
+check_db.py
+test_*.jpg
+result*.jpg
+debug_*.jpg
+plate_*.jpg

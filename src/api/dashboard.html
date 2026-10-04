@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>داشبورد پلاک‌خوان هوشمند</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    * { font-family: 'Vazirmatn', sans-serif; }
+    body { background-color: #f8fafc; color: #1e293b; }
+
+    .metric-card { border-radius: 16px; transition: all 0.25s; }
+    .metric-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.07); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+    /* پلاک */
+    .iran-plate {
+      display: inline-flex; flex-direction: row; align-items: center;
+      direction: ltr; background-color: #ffffff; border: 2.5px solid #111827;
+      border-radius: 8px; height: 44px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+      user-select: none; overflow: hidden;
+    }
+    .iran-plate.unknown { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2); }
+    .iran-plate.blacklist { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3); }
+    .iran-plate.whitelist { border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2); }
+
+    .plate-flag-strip {
+      background-color: #0b4f9c; width: 26px; height: 100%;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: space-between; padding: 5px 2px; box-sizing: border-box;
+    }
+    .plate-flag { width: 18px; height: 10px; display: flex; flex-direction: column; border-radius: 1px; overflow: hidden; }
+    .flag-green { background-color: #22c55e; flex: 1; }
+    .flag-white { background-color: #ffffff; flex: 1; }
+    .flag-red { background-color: #ef4444; flex: 1; }
+    .plate-ir-text { color: #ffffff; font-size: 6px; line-height: 7px; font-weight: 800; text-align: center; }
+    .plate-body { display: flex; align-items: center; justify-content: center; padding: 0 8px; gap: 6px; color: #111827; font-size: 17px; font-weight: 800; }
+    .plate-num { letter-spacing: 1px; }
+    .plate-char { color: #1f2937; font-size: 16px; padding: 0 2px; }
+    .plate-zone {
+      border-left: 2px solid #111827; height: 100%; display: flex;
+      flex-direction: column; align-items: center; justify-content: center;
+      padding: 0 6px; background-color: #f9fafb; min-width: 32px;
+    }
+    .plate-zone .zone-title { font-size: 7px; font-weight: 700; color: #4b5563; }
+    .plate-zone .zone-code { font-size: 14px; font-weight: 800; color: #111827; margin-top: 1px; }
+
+    .live-badge {
+      position: absolute; top: 8px; right: 8px; background: rgba(239, 68, 68, 0.9);
+      color: white; font-size: 10px; font-weight: bold; padding: 2px 6px;
+      border-radius: 4px; display: flex; align-items: center; gap: 4px;
+    }
+    .live-badge::before {
+      content: ''; width: 6px; height: 6px; background: white; border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col md:flex-row">
+
+  <!-- Sidebar -->
+  <aside class="w-full md:w-64 bg-white border-l border-slate-200 flex-shrink-0 flex flex-col justify-between sticky top-0 h-screen z-20 overflow-y-auto">
+    <div>
+      <div class="p-5 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg">
+            <i data-lucide="shield-check" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h1 class="font-extrabold text-slate-800 text-base">پلاک‌خوان کارگاه</h1>
+            <span class="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full mt-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              متصل
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="p-3 space-y-1">
+        <button onclick="switchTab('overview')" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-blue-600 bg-blue-50/80 active-tab" data-page="overview">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span>نمای کلی</span>
+        </button>
+        <button onclick="switchTab('live')" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100" data-page="live">
+          <i data-lucide="video" class="w-4 h-4"></i>
+          <span>تماشای زنده</span>
+        </button>
+        <button onclick="switchTab('events')" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100" data-page="events">
+          <i data-lucide="arrow-left-right" class="w-4 h-4"></i>
+          <span>ورود / خروج</span>
+        </button>
+        <button onclick="switchTab('inside')" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100" data-page="inside">
+          <i data-lucide="warehouse" class="w-4 h-4"></i>
+          <span>داخل کارگاه</span>
+        </button>
+        <button onclick="switchTab('whitelist')" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100" data-page="whitelist">
+          <i data-lucide="users" class="w-4 h-4"></i>
+          <span>لیست سفید</span>
+        </button>
+        <button onclick="switchTab('blacklist')" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100" data-page="blacklist">
+          <i data-lucide="shield-x" class="w-4 h-4"></i>
+          <span>لیست سیاه</span>
+        </button>
+        <button onclick="switchTab('analytics')" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100" data-page="analytics">
+          <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
+          <span>آمار و نمودار</span>
+        </button>
+        <button onclick="switchTab('cameras')" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100" data-page="cameras">
+          <i data-lucide="camera" class="w-4 h-4"></i>
+          <span>دوربین‌ها</span>
+        </button>
+        <button onclick="switchTab('gallery')" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100" data-page="gallery">
+          <i data-lucide="image" class="w-4 h-4"></i>
+          <span>گالری تصاویر</span>
+        </button>
+        <button onclick="switchTab('system')" class="nav-tab w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition text-slate-600 hover:bg-slate-100" data-page="system">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          <span>سیستم و بکاپ</span>
+        </button>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <header class="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between sticky top-0 z-10">
+      <div class="flex items-center gap-3">
+        <i data-lucide="calendar" class="w-4 h-4 text-blue-600"></i>
+        <span id="currentDate" class="text-sm font-semibold">--</span>
+        <span class="text-slate-300">|</span>
+        <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-500"></i>
+        <span id="clockDisplay" class="font-mono text-xs">--:--:--</span>
+      </div>
+      <button onclick="refreshAll()" class="p-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50">
+        <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+      </button>
+    </header>
+
+    <div class="p-5 md:p-8 space-y-6">
+
+      <!-- Overview -->
+      <section id="page-overview" class="page-content space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="metric-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-xs font-semibold text-slate-500">کل رویدادها</span>
+                <div id="statTotalEvents" class="text-2xl font-black text-slate-800">--</div>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center"><i data-lucide="log-in" class="w-6 h-6"></i></div>
+            </div>
+          </div>
+          <div class="metric-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-xs font-semibold text-slate-500">رویدادهای امروز</span>
+                <div id="statTodayEvents" class="text-2xl font-black text-blue-600">--</div>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><i data-lucide="calendar" class="w-6 h-6"></i></div>
+            </div>
+          </div>
+          <div class="metric-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-xs font-semibold text-slate-500">داخل کارگاه</span>
+                <div id="statInsideNow" class="text-2xl font-black text-emerald-600">--</div>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center"><i data-lucide="warehouse" class="w-6 h-6"></i></div>
+            </div>
+          </div>
+          <div class="metric-card bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-xs font-semibold text-slate-500">میانگین توقف</span>
+                <div id="statAvgDuration" class="text-2xl font-black text-amber-600">--</div>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center"><i data-lucide="hourglass" class="w-6 h-6"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="p-5 border-b border-slate-100">
+            <h3 class="font-bold text-slate-800 text-sm">آخرین رویدادها</h3>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-right text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-semibold">
+                <tr>
+                  <th class="py-3 px-4">تصویر</th>
+                  <th class="py-3 px-4">زمان</th>
+                  <th class="py-3 px-4">پلاک</th>
+                  <th class="py-3 px-4">وضعیت</th>
+                  <th class="py-3 px-4">مالک</th>
+                  <th class="py-3 px-4">جهت</th>
+                  <th class="py-3 px-4 text-center">عملیات</th>
+                </tr>
+              </thead>
+              <tbody id="recentEventsTable" class="divide-y divide-slate-100">
+                <tr><td colspan="7" class="text-center py-4 text-slate-400">در حال بارگذاری...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Live -->
+      <section id="page-live" class="page-content hidden space-y-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 class="text-base font-extrabold text-slate-800">تماشای زنده دوربین‌ها</h2>
+        </div>
+        <div id="liveGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+      </section>
+
+      <!-- Events -->
+      <section id="page-events" class="page-content hidden space-y-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-base font-extrabold text-slate-800">رویدادهای ورود/خروج</h2>
+            <div class="flex gap-2">
+              <button onclick="exportCSV()" class="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold hover:bg-emerald-100 flex items-center gap-1.5">
+                <i data-lucide="file-text" class="w-3.5 h-3.5"></i> CSV
+              </button>
+              <button onclick="exportExcel()" class="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 flex items-center gap-1.5">
+                <i data-lucide="sheet" class="w-3.5 h-3.5"></i> Excel
+              </button>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <input type="text" id="filterPlate" oninput="renderEvents()" placeholder="جستجوی پلاک..." class="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+            <input type="text" id="filterDate" oninput="renderEvents()" placeholder="تاریخ (1405/07/12)" class="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+            <select id="filterDirection" onchange="renderEvents()" class="text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+              <option value="">همه جهت‌ها</option>
+              <option value="entry">ورود</option>
+              <option value="exit">خروج</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-right text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-semibold">
+                <tr>
+                  <th class="py-3 px-4">تصویر</th>
+                  <th class="py-3 px-4">#</th>
+                  <th class="py-3 px-4">تاریخ</th>
+                  <th class="py-3 px-4">ساعت</th>
+                  <th class="py-3 px-4">پلاک</th>
+                  <th class="py-3 px-4">وضعیت</th>
+                  <th class="py-3 px-4">جهت</th>
+                  <th class="py-3 px-4">مدت</th>
+                  <th class="py-3 px-4 text-center">عملیات</th>
+                </tr>
+              </thead>
+              <tbody id="allEventsTable" class="divide-y divide-slate-100">
+                <tr><td colspan="9" class="text-center py-4 text-slate-400">در حال بارگذاری...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Inside -->
+      <section id="page-inside" class="page-content hidden space-y-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 class="text-base font-extrabold text-slate-800">خودروهای داخل کارگاه</h2>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-right text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-semibold">
+                <tr>
+                  <th class="py-3 px-4">#</th>
+                  <th class="py-3 px-4">پلاک</th>
+                  <th class="py-3 px-4">وضعیت</th>
+                  <th class="py-3 px-4">مالک</th>
+                  <th class="py-3 px-4">آخرین ورود</th>
+                  <th class="py-3 px-4">بازدید</th>
+                </tr>
+              </thead>
+              <tbody id="insideTable" class="divide-y divide-slate-100">
+                <tr><td colspan="6" class="text-center py-4 text-slate-400">در حال بارگذاری...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Whitelist -->
+      <section id="page-whitelist" class="page-content hidden space-y-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <h2 class="text-base font-extrabold text-slate-800">لیست سفید (وسایل مجاز)</h2>
+          <button onclick="openWhitelistModal()" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold hover:bg-emerald-700 flex items-center gap-1.5">
+            <i data-lucide="plus" class="w-4 h-4"></i> افزودن
+          </button>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-right text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-semibold">
+                <tr>
+                  <th class="py-3 px-4">پلاک</th>
+                  <th class="py-3 px-4">مالک</th>
+                  <th class="py-3 px-4">نوع</th>
+                  <th class="py-3 px-4">واحد</th>
+                  <th class="py-3 px-4">تلفن</th>
+                  <th class="py-3 px-4 text-center">عملیات</th>
+                </tr>
+              </thead>
+              <tbody id="whitelistTable" class="divide-y divide-slate-100">
+                <tr><td colspan="6" class="text-center py-4 text-slate-400">در حال بارگذاری...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Blacklist -->
+      <section id="page-blacklist" class="page-content hidden space-y-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+          <h2 class="text-base font-extrabold text-slate-800">لیست سیاه (پلاک‌های ممنوع)</h2>
+          <button onclick="openBlacklistModal()" class="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-semibold hover:bg-rose-700 flex items-center gap-1.5">
+            <i data-lucide="plus" class="w-4 h-4"></i> افزودن
+          </button>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-right text-xs">
+              <thead class="bg-slate-50 text-slate-500 font-semibold">
+                <tr>
+                  <th class="py-3 px-4">پلاک</th>
+                  <th class="py-3 px-4">دلیل</th>
+                  <th class="py-3 px-4">تاریخ</th>
+                  <th class="py-3 px-4 text-center">عملیات</th>
+                </tr>
+              </thead>
+              <tbody id="blacklistTable" class="divide-y divide-slate-100">
+                <tr><td colspan="4" class="text-center py-4 text-slate-400">در حال بارگذاری...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+            <!-- Analytics -->
+      <section id="page-analytics" class="page-content hidden space-y-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 class="text-base font-extrabold text-slate-800">آمار و نمودارها</h2>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 class="font-bold text-sm mb-4">تردد ساعتی امروز</h3>
+            <div style="height: 300px; position: relative;">
+              <canvas id="hourlyChart"></canvas>
+            </div>
+          </div>
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 class="font-bold text-sm mb-4">پرتکرارترین پلاک‌ها</h3>
+            <div style="height: 300px; position: relative;">
+              <canvas id="topPlatesChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cameras -->
+      <section id="page-cameras" class="page-content hidden space-y-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 class="text-base font-extrabold text-slate-800">مدیریت دوربین‌ها</h2>
+          <p class="text-xs text-slate-400 mt-1">حداکثر ۴ دوربین</p>
+        </div>
+        <div id="camerasList" class="space-y-4"></div>
+      </section>
+
+      <!-- Gallery -->
+      <section id="page-gallery" class="page-content hidden space-y-6">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 class="text-base font-extrabold text-slate-800">گالری تصاویر</h2>
+        </div>
+        <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- System -->
+      <section id="page-system" class="page-content hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <h3 class="font-bold text-slate-800 text-sm">💾 بکاپ دیتابیس</h3>
+            <div id="dbInfo" class="text-xs text-slate-600 space-y-1"></div>
+            <button onclick="createBackup()" class="w-full py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700">
+              ایجاد بکاپ جدید
+            </button>
+            <div id="backupsList" class="space-y-2 max-h-64 overflow-y-auto"></div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <h3 class="font-bold text-slate-800 text-sm">🗑️ پاکسازی تصاویر</h3>
+            <div id="cleanupInfo" class="text-xs text-slate-600 space-y-1"></div>
+            <button onclick="cleanupOldSnapshots()" class="w-full py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700">
+              حذف تصاویر قدیمی‌تر از ۷ روز
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Modal تصویر -->
+  <div id="imageModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4" onclick="closeImage()">
+    <div class="bg-white rounded-2xl max-w-3xl w-full p-4 shadow-2xl" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+        <h3 id="modalTitle" class="font-bold text-slate-800 text-sm">تصویر پلاک</h3>
+        <button onclick="closeImage()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <img id="modalImage" src="" class="w-full rounded-xl max-h-[70vh] object-contain bg-slate-900">
+    </div>
+  </div>
+
+  <!-- Modal Whitelist -->
+  <div id="whitelistModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 id="whitelistModalTitle" class="font-bold text-slate-800 text-sm">افزودن به لیست سفید</h3>
+        <button onclick="closeWhitelistModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="whitelistForm" onsubmit="saveWhitelist(event)" class="mt-4 space-y-3">
+        <input type="hidden" id="whitelistEditMode" value="add">
+        <input type="hidden" id="whitelistOriginalPlate" value="">
+        <input type="text" id="whitelistPlate" required placeholder="پلاک" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+        <input type="text" id="whitelistOwner" placeholder="نام مالک" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+        <div class="grid grid-cols-2 gap-2">
+          <input type="text" id="whitelistType" placeholder="نوع وسیله" class="text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+          <input type="text" id="whitelistDept" placeholder="واحد" class="text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+        </div>
+        <input type="text" id="whitelistPhone" placeholder="تلفن" dir="ltr" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+        <div class="pt-3 flex gap-2">
+          <button type="submit" class="flex-1 py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs">ذخیره</button>
+          <button type="button" onclick="closeWhitelistModal()" class="px-4 py-2.5 bg-slate-100 rounded-xl text-xs">انصراف</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Blacklist -->
+  <div id="blacklistModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="font-bold text-slate-800 text-sm">افزودن به لیست سیاه</h3>
+        <button onclick="closeBlacklistModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="blacklistForm" onsubmit="saveBlacklist(event)" class="mt-4 space-y-3">
+        <input type="text" id="blacklistPlate" required placeholder="پلاک" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+        <input type="text" id="blacklistReason" placeholder="دلیل" class="w-full text-xs p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+        <div class="pt-3 flex gap-2">
+          <button type="submit" class="flex-1 py-2.5 bg-rose-600 text-white font-bold rounded-xl text-xs">ذخیره</button>
+          <button type="button" onclick="closeBlacklistModal()" class="px-4 py-2.5 bg-slate-100 rounded-xl text-xs">انصراف</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = window.location.origin;
+    let allEvents = [];
+    let allCameras = [];
+    let allWhitelist = [];
+    let allBlacklist = [];
+
+    // API
+    async function api(endpoint) {
+      const res = await fetch(`${API_URL}${endpoint}`);
+      return await res.json();
+    }
+
+    // پلاک
+    function parseIranPlate(rawText) {
+      if (!rawText) return { num2: '--', letter: '-', num3: '---', zone: '--' };
+      const clean = String(rawText).replace(/[\s\-_\/]/g, '');
+      const map = {'۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9'};
+      let normalized = clean;
+      for (const [fa, en] of Object.entries(map)) normalized = normalized.replace(new RegExp(fa, 'g'), en);
+      const match = normalized.match(/^(\d{2})([^\d]+)(\d{3})(\d{2})$/);
+      if (match) return { num2: match[1], letter: match[2], num3: match[3], zone: match[4] };
+      return { num2: normalized.substring(0, 2) || '--', letter: normalized.substring(2, 3) || '-', num3: normalized.substring(3, 6) || '---', zone: normalized.substring(6, 8) || '--' };
+    }
+
+    function getPlateStatusClass(plate) {
+      // بررسی در whitelist و blacklist
+      if (allWhitelist.some(w => w.plate === plate)) return 'whitelist';
+      if (allBlacklist.some(b => b.plate === plate)) return 'blacklist';
+      return 'unknown';
+    }
+
+    function renderPlate(plate) {
+      const p = parseIranPlate(plate);
+      const status = getPlateStatusClass(plate);
+      const statusEmoji = status === 'whitelist' ? '🟢' : status === 'blacklist' ? '🔴' : '🟠';
+
+      return `
+        <div class="flex items-center gap-2">
+          <div class="iran-plate ${status}">
+            <div class="plate-flag-strip">
+              <div class="plate-flag">
+                <div class="flag-green"></div>
+                <div class="flag-white"></div>
+                <div class="flag-red"></div>
+              </div>
+              <div class="plate-ir-text">I.R.<br>IRAN</div>
+            </div>
+            <div class="plate-body">
+              <span class="plate-num">${p.num2}</span>
+              <span class="plate-char">${p.letter}</span>
+              <span class="plate-num">${p.num3}</span>
+            </div>
+            <div class="plate-zone">
+              <span class="zone-title">ایران</span>
+              <span class="zone-code">${p.zone}</span>
+            </div>
+          </div>
+          <span class="text-xs" title="${status}">${statusEmoji}</span>
+        </div>
+      `;
+    }
+
+    function getImageUrl(ev) {
+      const path = ev.snapshot_entry || ev.snapshot_exit;
+      if (!path) return null;
+      return `${API_URL}/api/snapshot/${path.replace(/\\/g, '/')}`;
+    }
+
+    function renderImage(ev) {
+      const url = getImageUrl(ev);
+      if (!url) return '<span class="text-slate-300 text-[10px]">—</span>';
+      return `<img src="${url}" class="w-24 h-14 object-cover rounded-lg border border-slate-200 cursor-pointer hover:scale-105 transition shadow-sm" onclick="showImage('${url}', '${ev.plate}')">`;
+    }
+
+    // Render
+    async function renderStats() {
+      const stats = await api('/api/stats');
+      document.getElementById('statTotalEvents').innerText = stats.total_events;
+      document.getElementById('statTodayEvents').innerText = stats.today_events;
+      document.getElementById('statInsideNow').innerText = stats.inside_now;
+      document.getElementById('statAvgDuration').innerText = stats.avg_duration + ' د';
+      document.getElementById('currentDate').innerText = stats.date;
+    }
+
+    async function renderRecentEvents() {
+      const data = await api('/api/events?limit=10');
+      const tbody = document.getElementById('recentEventsTable');
+      if (data.events.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-slate-400">رویدادی نیست</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.events.map(ev => {
+        const dirClass = ev.direction === 'entry' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700';
+        const dirFa = ev.direction === 'entry' ? 'ورود' : 'خروج';
+        const status = getPlateStatusClass(ev.plate);
+        const statusFa = status === 'whitelist' ? 'مجاز' : status === 'blacklist' ? 'ممنوع' : 'ناشناس';
+        const statusClass = status === 'whitelist' ? 'bg-emerald-50 text-emerald-700' : status === 'blacklist' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700';
+
+        return `<tr class="hover:bg-slate-50">
+          <td class="py-2 px-4">${renderImage(ev)}</td>
+          <td class="py-3 px-4 font-mono text-slate-600">${ev.time}</td>
+          <td class="py-3 px-4">${renderPlate(ev.plate)}</td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${statusClass}">${statusFa}</span></td>
+          <td class="py-3 px-4">${ev.owner_name || 'متفرقه'}</td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${dirClass}">${dirFa}</span></td>
+          <td class="py-3 px-4 text-center">
+            ${status === 'unknown' ? `
+              <button onclick="quickAddToWhitelist('${ev.plate}')" class="text-emerald-600 text-[11px] hover:underline" title="افزودن به لیست سفید">+مجاز</button>
+              <button onclick="quickAddToBlacklist('${ev.plate}')" class="text-rose-600 text-[11px] hover:underline mr-2" title="افزودن به لیست سیاه">+ممنوع</button>
+            ` : '-'}
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function renderEvents() {
+      if (allEvents.length === 0) {
+        const data = await api('/api/events?limit=1000');
+        allEvents = data.events;
+      }
+      const pf = document.getElementById('filterPlate').value.trim().toLowerCase();
+      const df = document.getElementById('filterDate').value.trim();
+      const dir = document.getElementById('filterDirection').value;
+
+      const filtered = allEvents.filter(ev => {
+        if (pf && !ev.plate.toLowerCase().includes(pf)) return false;
+        if (df && !ev.date.includes(df)) return false;
+        if (dir && ev.direction !== dir) return false;
+        return true;
+      });
+
+      const tbody = document.getElementById('allEventsTable');
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-slate-400">رویدادی پیدا نشد</td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map(ev => {
+        const dirClass = ev.direction === 'entry' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700';
+        const dirFa = ev.direction === 'entry' ? 'ورود' : 'خروج';
+        const duration = ev.duration_min ? `${parseFloat(ev.duration_min).toFixed(1)} د` : '-';
+        const status = getPlateStatusClass(ev.plate);
+        const statusFa = status === 'whitelist' ? 'مجاز' : status === 'blacklist' ? 'ممنوع' : 'ناشناس';
+        const statusClass = status === 'whitelist' ? 'bg-emerald-50 text-emerald-700' : status === 'blacklist' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700';
+
+        return `<tr class="hover:bg-slate-50">
+          <td class="py-2 px-4">${renderImage(ev)}</td>
+          <td class="py-3 px-4 text-slate-400">#${ev.id}</td>
+          <td class="py-3 px-4">${ev.date}</td>
+          <td class="py-3 px-4 font-mono">${ev.time}</td>
+          <td class="py-3 px-4">${renderPlate(ev.plate)}</td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${statusClass}">${statusFa}</span></td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${dirClass}">${dirFa}</span></td>
+          <td class="py-3 px-4">${duration}</td>
+          <td class="py-3 px-4 text-center">
+            ${status === 'unknown' ? `
+              <button onclick="quickAddToWhitelist('${ev.plate}')" class="text-emerald-600 text-[11px] hover:underline">+مجاز</button>
+              <button onclick="quickAddToBlacklist('${ev.plate}')" class="text-rose-600 text-[11px] hover:underline mr-2">+ممنوع</button>
+            ` : '-'}
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function renderInside() {
+      const data = await api('/api/vehicles?status=inside');
+      const tbody = document.getElementById('insideTable');
+      if (data.vehicles.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">کسی داخل نیست</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.vehicles.map((v, i) => {
+        const status = getPlateStatusClass(v.plate);
+        const statusFa = status === 'whitelist' ? '🟢 مجاز' : status === 'blacklist' ? '🔴 ممنوع' : '🟠 ناشناس';
+        return `<tr class="hover:bg-slate-50">
+          <td class="py-3 px-4 text-slate-400">${i + 1}</td>
+          <td class="py-3 px-4">${renderPlate(v.plate)}</td>
+          <td class="py-3 px-4 text-xs">${statusFa}</td>
+          <td class="py-3 px-4">${v.owner_name || 'متفرقه'}</td>
+          <td class="py-3 px-4 font-mono text-slate-600">${v.last_entry}</td>
+          <td class="py-3 px-4">${v.total_visits}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function renderWhitelist() {
+      const data = await api('/api/whitelist');
+      allWhitelist = data.items;
+      const tbody = document.getElementById('whitelistTable');
+      if (data.items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-slate-400">لیست خالیه</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.items.map(item => `<tr class="hover:bg-slate-50">
+        <td class="py-3 px-4">${renderPlate(item.plate)}</td>
+        <td class="py-3 px-4 font-bold">${item.owner_name || '-'}</td>
+        <td class="py-3 px-4">${item.vehicle_type || '-'}</td>
+        <td class="py-3 px-4">${item.department || '-'}</td>
+        <td class="py-3 px-4 font-mono text-slate-600">${item.phone || '-'}</td>
+        <td class="py-3 px-4 text-center">
+          <button onclick="editWhitelist('${item.plate}', '${item.owner_name || ''}', '${item.vehicle_type || ''}', '${item.department || ''}', '${item.phone || ''}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg">
+            <i data-lucide="edit-3" class="w-4 h-4"></i>
+          </button>
+          <button onclick="deleteWhitelist('${item.plate}')" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </td>
+      </tr>`).join('');
+      lucide.createIcons();
+    }
+
+    async function renderBlacklist() {
+      const data = await api('/api/blacklist');
+      allBlacklist = data.items;
+      const tbody = document.getElementById('blacklistTable');
+      if (data.items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-slate-400">لیست خالیه</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.items.map(item => `<tr class="hover:bg-slate-50">
+        <td class="py-3 px-4">${renderPlate(item.plate)}</td>
+        <td class="py-3 px-4">${item.reason || '-'}</td>
+        <td class="py-3 px-4 text-slate-500 text-[11px]">${item.created_at || '-'}</td>
+        <td class="py-3 px-4 text-center">
+          <button onclick="deleteBlacklist('${item.plate}')" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </td>
+      </tr>`).join('');
+      lucide.createIcons();
+    }
+
+    async function renderCameras() {
+      const data = await api('/api/cameras');
+      allCameras = data.cameras;
+      const container = document.getElementById('camerasList');
+      container.innerHTML = allCameras.map((cam, i) => `
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><i data-lucide="video" class="w-5 h-5"></i></div>
+              <div>
+                <div class="text-sm font-bold text-slate-800">${cam.name}</div>
+                <div class="text-[11px] text-slate-400">${cam.id}</div>
+              </div>
+            </div>
+            <span class="text-[11px] ${cam.enabled ? 'text-emerald-600 bg-emerald-50' : 'text-slate-500 bg-slate-100'} px-2 py-0.5 rounded-full font-semibold">
+              ${cam.enabled ? 'فعال' : 'غیرفعال'}
+            </span>
+          </div>
+          <input type="text" id="camName_${i}" value="${cam.name}" placeholder="نام دوربین" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+          <input type="text" id="camRtsp_${i}" value="${cam.rtsp}" placeholder="rtsp://..." dir="ltr" class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono">
+          <div class="flex items-center gap-2">
+            <input type="checkbox" id="camEnabled_${i}" ${cam.enabled ? 'checked' : ''} class="w-4 h-4">
+            <label class="text-xs">فعال</label>
+          </div>
+          <button onclick="saveCamera(${i}, '${cam.id}')" class="w-full py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700">ذخیره</button>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    async function renderLive() {
+      const data = await api('/api/cameras');
+      const activeCams = data.cameras.filter(c => c.enabled && c.rtsp);
+      const grid = document.getElementById('liveGrid');
+
+      if (activeCams.length === 0) {
+        grid.innerHTML = '<div class="bg-white rounded-2xl border p-8 text-center text-slate-400 col-span-full">هیچ دوربین فعالی وجود ندارد</div>';
+        return;
+      }
+
+      grid.innerHTML = activeCams.map(cam => `
+        <div class="bg-white rounded-2xl border shadow-sm overflow-hidden">
+          <div class="p-3 border-b flex items-center justify-between">
+            <span class="text-sm font-bold">${cam.name}</span>
+            <span class="text-[11px] text-slate-400 font-mono">${cam.id}</span>
+          </div>
+          <div class="relative bg-slate-900 aspect-video">
+            <img src="${API_URL}/api/camera/${cam.id}/stream" class="w-full h-full object-cover">
+            <div class="live-badge">زنده</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function renderGallery() {
+      const data = await api('/api/events?limit=50');
+      const grid = document.getElementById('galleryGrid');
+      const withImages = data.events.filter(ev => ev.snapshot_entry || ev.snapshot_exit);
+      if (withImages.length === 0) {
+        grid.innerHTML = '<div class="text-center py-8 text-slate-400 col-span-full">تصویری نیست</div>';
+        return;
+      }
+      grid.innerHTML = withImages.map(ev => {
+        const url = getImageUrl(ev);
+        const dirFa = ev.direction === 'entry' ? 'ورود' : 'خروج';
+        const dirColor = ev.direction === 'entry' ? 'bg-emerald-500' : 'bg-rose-500';
+        return `<div class="bg-white rounded-xl border shadow-sm overflow-hidden group">
+          <div class="relative bg-slate-900 h-44 cursor-pointer" onclick="showImage('${url}', '${ev.plate}')">
+            <img src="${url}" class="w-full h-full object-cover group-hover:scale-105 transition">
+            <div class="absolute top-2 right-2 ${dirColor} text-white text-[10px] font-bold px-2 py-0.5 rounded-full">${dirFa}</div>
+            <div class="absolute bottom-2 left-2 bg-slate-900/80 text-white text-[10px] font-mono px-2 py-0.5 rounded">${ev.time}</div>
+          </div>
+          <div class="p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              ${renderPlate(ev.plate)}
+              <span class="text-[10px] text-slate-400">${ev.date}</span>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+        async function renderAnalytics() {
+      try {
+        const hourly = await api('/api/stats/hourly');
+        const top = await api('/api/stats/top-plates?limit=10');
+
+        // Hourly chart
+        const canvasH = document.getElementById('hourlyChart');
+        if (!canvasH) return;
+        const ctxH = canvasH.getContext('2d');
+        if (window.hourlyChartInstance) window.hourlyChartInstance.destroy();
+
+        window.hourlyChartInstance = new Chart(ctxH, {
+          type: 'bar',
+          data: {
+            labels: Object.keys(hourly.hourly || {}),
+            datasets: [
+              {
+                label: 'ورود',
+                data: Object.values(hourly.hourly || {}).map(h => h.entry || 0),
+                backgroundColor: '#3b82f6',
+                borderRadius: 6,
+              },
+              {
+                label: 'خروج',
+                data: Object.values(hourly.hourly || {}).map(h => h.exit || 0),
+                backgroundColor: '#f59e0b',
+                borderRadius: 6,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+              legend: { position: 'top', labels: { font: { family: 'Vazirmatn' } } }
+            },
+            scales: {
+              x: { ticks: { font: { family: 'Vazirmatn', size: 10 } } },
+              y: { beginAtZero: true, ticks: { font: { family: 'Vazirmatn', size: 10 } } }
+            }
+          }
+        });
+
+        // Top plates
+        const canvasT = document.getElementById('topPlatesChart');
+        if (!canvasT) return;
+        const ctxT = canvasT.getContext('2d');
+        if (window.topChartInstance) window.topChartInstance.destroy();
+
+        const topPlates = top.top_plates || [];
+
+        window.topChartInstance = new Chart(ctxT, {
+          type: 'bar',
+          data: {
+            labels: topPlates.map(p => p.plate),
+            datasets: [{
+              label: 'تعداد تردد',
+              data: topPlates.map(p => p.count),
+              backgroundColor: '#2563eb',
+              borderRadius: 6,
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              x: { beginAtZero: true, ticks: { font: { family: 'Vazirmatn', size: 10 } } },
+              y: { ticks: { font: { family: 'Vazirmatn', size: 11 } } }
+            }
+          }
+        });
+      } catch (e) {
+        console.error('خطا در نمودار:', e);
+      }
+    }
+
+    async function renderSystem() {
+      const backups = await api('/api/backup/list');
+      const cleanup = await api('/api/cleanup/size');
+
+      document.getElementById('dbInfo').innerHTML = `
+        <div>📊 حجم دیتابیس: <strong>${(backups.db_size / 1024).toFixed(1)} KB</strong></div>
+        <div>💾 تعداد بکاپ: <strong>${backups.count}</strong></div>
+      `;
+
+      document.getElementById('cleanupInfo').innerHTML = `
+        <div>📷 تعداد تصاویر: <strong>${cleanup.snapshots_count}</strong></div>
+        <div>💾 حجم تصاویر: <strong>${cleanup.snapshots_size_mb} MB</strong></div>
+      `;
+
+      document.getElementById('backupsList').innerHTML = backups.backups.slice(0, 10).map(b => `
+        <div class="flex items-center justify-between p-2 bg-slate-50 rounded-lg text-[11px]">
+          <span class="font-mono">${b.filename}</span>
+          <span class="text-slate-500">${(b.size / 1024).toFixed(1)} KB</span>
+        </div>
+      `).join('');
+    }
+
+    // Actions
+    function showImage(url, plate) {
+      document.getElementById('modalTitle').innerText = `تصویر پلاک: ${plate}`;
+      document.getElementById('modalImage').src = url;
+      document.getElementById('imageModal').classList.remove('hidden');
+    }
+    function closeImage() { document.getElementById('imageModal').classList.add('hidden'); }
+
+    function exportCSV() {
+      const p = document.getElementById('filterPlate').value.trim();
+      const d = document.getElementById('filterDate').value.trim();
+      let url = `${API_URL}/api/events/export/csv?`;
+      if (p) url += `plate=${encodeURIComponent(p)}&`;
+      if (d) url += `date=${encodeURIComponent(d)}&`;
+      window.open(url, '_blank');
+    }
+
+    function exportExcel() {
+      const p = document.getElementById('filterPlate').value.trim();
+      const d = document.getElementById('filterDate').value.trim();
+      let url = `${API_URL}/api/events/export/excel?`;
+      if (p) url += `plate=${encodeURIComponent(p)}&`;
+      if (d) url += `date=${encodeURIComponent(d)}&`;
+      window.open(url, '_blank');
+    }
+
+    // Whitelist CRUD
+    function openWhitelistModal() {
+      document.getElementById('whitelistModalTitle').innerText = 'افزودن به لیست سفید';
+      document.getElementById('whitelistForm').reset();
+      document.getElementById('whitelistEditMode').value = 'add';
+      document.getElementById('whitelistModal').classList.remove('hidden');
+    }
+
+    function quickAddToWhitelist(plate) {
+      document.getElementById('whitelistPlate').value = plate;
+      document.getElementById('whitelistEditMode').value = 'add';
+      document.getElementById('whitelistModalTitle').innerText = 'افزودن به لیست سفید';
+      document.getElementById('whitelistModal').classList.remove('hidden');
+    }
+
+    function editWhitelist(plate, owner, type, dept, phone) {
+      document.getElementById('whitelistModalTitle').innerText = 'ویرایش';
+      document.getElementById('whitelistEditMode').value = 'edit';
+      document.getElementById('whitelistOriginalPlate').value = plate;
+      document.getElementById('whitelistPlate').value = plate;
+      document.getElementById('whitelistOwner').value = owner;
+      document.getElementById('whitelistType').value = type;
+      document.getElementById('whitelistDept').value = dept;
+      document.getElementById('whitelistPhone').value = phone;
+      document.getElementById('whitelistModal').classList.remove('hidden');
+    }
+
+    function closeWhitelistModal() { document.getElementById('whitelistModal').classList.add('hidden'); }
+
+    async function saveWhitelist(e) {
+      e.preventDefault();
+      const mode = document.getElementById('whitelistEditMode').value;
+      const orig = document.getElementById('whitelistOriginalPlate').value;
+      const data = {
+        plate: document.getElementById('whitelistPlate').value.trim(),
+        owner_name: document.getElementById('whitelistOwner').value.trim(),
+        vehicle_type: document.getElementById('whitelistType').value.trim(),
+        department: document.getElementById('whitelistDept').value.trim(),
+        phone: document.getElementById('whitelistPhone').value.trim(),
+      };
+      if (mode === 'edit' && orig) {
+        await fetch(`${API_URL}/api/whitelist/${orig}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+      } else {
+        await fetch(`${API_URL}/api/whitelist`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+      }
+      closeWhitelistModal();
+      await renderWhitelist();
+      await renderRecentEvents();
+      await renderEvents();
+    }
+
+    async function deleteWhitelist(plate) {
+      if (!confirm(`حذف ${plate}؟`)) return;
+      await fetch(`${API_URL}/api/whitelist/${plate}`, { method: 'DELETE' });
+      await renderWhitelist();
+      allEvents = [];
+      await renderEvents();
+    }
+
+    // Blacklist CRUD
+    function openBlacklistModal() {
+      document.getElementById('blacklistForm').reset();
+      document.getElementById('blacklistModal').classList.remove('hidden');
+    }
+
+    function quickAddToBlacklist(plate) {
+      document.getElementById('blacklistPlate').value = plate;
+      document.getElementById('blacklistModal').classList.remove('hidden');
+    }
+
+    function closeBlacklistModal() { document.getElementById('blacklistModal').classList.add('hidden'); }
+
+    async function saveBlacklist(e) {
+      e.preventDefault();
+      const data = {
+        plate: document.getElementById('blacklistPlate').value.trim(),
+        reason: document.getElementById('blacklistReason').value.trim(),
+      };
+      await fetch(`${API_URL}/api/blacklist`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+      closeBlacklistModal();
+      await renderBlacklist();
+      allEvents = [];
+      await renderEvents();
+    }
+
+    async function deleteBlacklist(plate) {
+      if (!confirm(`حذف ${plate}؟`)) return;
+      await fetch(`${API_URL}/api/blacklist/${plate}`, { method: 'DELETE' });
+      await renderBlacklist();
+      allEvents = [];
+      await renderEvents();
+    }
+
+    // Camera
+    async function saveCamera(index, cameraId) {
+      const data = {
+        id: cameraId,
+        name: document.getElementById(`camName_${index}`).value,
+        rtsp: document.getElementById(`camRtsp_${index}`).value,
+        enabled: document.getElementById(`camEnabled_${index}`).checked,
+      };
+      await fetch(`${API_URL}/api/cameras`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+      alert('✅ ذخیره شد');
+      renderCameras();
+    }
+
+    // System
+    async function createBackup() {
+      await fetch(`${API_URL}/api/backup/create`, { method: 'POST' });
+      alert('✅ بکاپ ساخته شد');
+      renderSystem();
+    }
+
+    async function cleanupOldSnapshots() {
+      if (!confirm('حذف تصاویر قدیمی‌تر از ۷ روز؟')) return;
+      const res = await fetch(`${API_URL}/api/cleanup/old-snapshots?days=7`, { method: 'POST' });
+      const data = await res.json();
+      alert(`✅ ${data.deleted} پوشه حذف شد`);
+      renderSystem();
+    }
+
+    // Tabs
+    function switchTab(tabId) {
+      document.querySelectorAll('.page-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-tab').forEach(el => {
+        el.classList.remove('bg-blue-50/80', 'text-blue-600');
+        el.classList.add('text-slate-600');
+      });
+      document.getElementById('page-' + tabId).classList.remove('hidden');
+      const btn = document.querySelector(`.nav-tab[data-page="${tabId}"]`);
+      btn.classList.add('bg-blue-50/80', 'text-blue-600');
+      btn.classList.remove('text-slate-600');
+
+      if (tabId === 'live') renderLive();
+      if (tabId === 'cameras') renderCameras();
+      if (tabId === 'blacklist') renderBlacklist();
+      if (tabId === 'analytics') {
+        setTimeout(renderAnalytics, 100);
+      }
+      if (tabId === 'system') renderSystem();
+
+      lucide.createIcons();
+    }
+
+    async function refreshAll() {
+      await renderWhitelist();
+      await renderBlacklist();
+      await renderStats();
+      await renderRecentEvents();
+      allEvents = [];
+      await renderEvents();
+      await renderInside();
+      await renderGallery();
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clockDisplay').innerText = 
+        `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+      await refreshAll();
+      setInterval(refreshAll, 15000);
+    });
+  </script>
+</body>
+</html>

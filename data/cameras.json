@@ -1,0 +1,26 @@
+[
+  {
+    "id": "cam-1",
+    "name": "دوربین ورودی",
+    "rtsp": "http://192.168.0.142:8080/stream",
+    "enabled": true
+  },
+  {
+    "id": "cam-2",
+    "name": "دوربین خروجی",
+    "rtsp": "http://192.168.0.142:8080/stream",
+    "enabled": true
+  },
+  {
+    "id": "cam-3",
+    "name": "دوربین ۳",
+    "rtsp": "http://192.168.0.142:8080/stream",
+    "enabled": true
+  },
+  {
+    "id": "cam-4",
+    "name": "دوربین ۴",
+    "rtsp": "http://192.168.0.142:8080/stream",
+    "enabled": true
+  }
+]
